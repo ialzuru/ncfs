@@ -1,0 +1,231 @@
+#########################
+###### CloudNCFS   ######
+###### README      ######
+###### Version 1.1 ######
+#########################
+
+Author: ANSRLab at CUHK
+Last modified date: Jul 12, 2012.
+
+##########################
+###### DISCLAIMERS #######
+##########################
+The source code of this proof-of-concept prototype is released for academic
+purpose. Some features are still under development. In this prototype, we
+assume the following:
+
+- The size of each file object being stored on the cloud-of-clouds is at most
+500MB. We suspect that the file size cannot be further increased due to some
+overflow problem in our program design. We plan to fix it in later versions.
+- The current repair operation is supported only for single node failures.
+
+#############################
+###### A. User's Guide ######
+#############################
+
+###### SYSTEM REQUIREMENTS ######
+Linux kernel version 2.6.18 or later.
+This software is tested on Ubuntu Linux kernel version 2.6.38-8.
+
+Python version 2.6 or later.
+This software is tested on Python version 2.7.1.
+
+#Qi's comment. My environment is Ubuntu 14.04 kernel 3.19.0-25-generic
+
+###### INSTALLATION ######
+1. Download and unzip this software package.
+
+2. Fuse package install (on Ubuntu):
+> sudo apt-get install libfuse-dev
+> sudo apt-get install fuse-utils #cq can't find
+> sudo apt-get install python-fuse
+
+3. Cloud package install (on Ubuntu):
+> sudo apt-get install python-boto
+> sudo apt-get install python-rackspace-cloudfiles #is python-cloudfiles instead
+
+4. zfec package install (on Ubuntu):
+> sudo apt-get install python-zfec
+
+5. Install C-library for functional repair (on Ubuntu):
+> sudo apt-get install gcc
+> sudo apt-get install python-dev
+> sudo apt-get install swig
+> cd cloudncfs/codings/clibfmsr
+Before proceeding, change SOL on line 8 in clibfmsr.c accordingly.
+> swig -python clibfmsr.i
+> gcc -O3 -std=c99 -c clibfmsr.c clibfmsr_wrap.c -I/usr/include/python2.7 # should add -fPIC when intalling
+    (add architecture-specific flags and change the python library path accordingly)
+> ld -shared clibfmsr.o clibfmsr_wrap.o -o _clibfmsr.so
+
+6. (Optional) Install and setup ZooKeeper if you plan to use it. # haven't setup successfully
+For details, go to the official site at http://zookeeper.apache.org/
+
+
+###### USE of CloudNCFS ######
+1. Set parameter:
+Create four temporary directories, for example: temp/mirrordir, temp/chunkdir, temp/metadatadir, temp/coeffdir.
+Edit setting.cfg. A sample setting file can be found in directory "template".
+More details can also be found at the end of this section.
+Fill in the cloud information (type, bucket name, credentials) and paths of created temporary directories.
+Put the setting.cfg at the current directory.
+
+Alternatively, you can run the CloudNCFS quickstart program to generate the setting in interactive mode.
+Quickstart program can be run by:
+> python cloudncfs/quickstart.py
+
+2. (Optional) If you are using ZooKeeper for the shared lock service, setup the ZooKeeper servers cluster before proceeding.
+
+3. Run CloudNCFS:
+First, create or select a mount point (directory). For example:
+> mkdir mountdir
+Second, run the CloudNCFS:
+> python cloudncfs/cloudncfs.py -d mountdir
+    (Omit -d if you don't want to enter debug mode)
+
+4. Use CloudNCFS:
+Upload files to or download files from cloud, by copying files to or from the mount point (here is directory "mountdir").
+
+5. Unmount CloudNCFS:
+CloudNCFS can be unmounted by:
+> fusermount -u mountdir
+
+
+###### BASIC FUNCTIONALITIES ######
+1. Upload file:
+"cp" a file to the mount point would upload the file to the cloud.
+
+2. Download file:
+"cp" a file from the mount point would download the file from the cloud.
+
+3. Degraded download:
+Even if a cloud storage provider failed, we can still download a file if it is uploaded by suitable fault-tolerance storage scheme.
+
+4. Node rebuild:
+If there is one or mutiple failed nodes (storage provider), we can rebuild data on one or multiple new spare nodes.
+A failed node can be simulated by directing a node to a non-existent path.
+First the user needs to define the information of spare nodes and number of spare nodes in setting.cfg.
+Then he/she can rebuild data to the spare node by running "python cloudncfs/rebuild.py"
+
+5. Delete file:
+"rm" a file at mount point would delete the file's chunks and metadata on the cloud.
+
+6. Display information of stored files:
+Running "python cloudncfs/info.py" can display information of files stored on cloud. The information includes filename, size, and coding scheme.
+
+7. Clean temporary directories:
+Running "python cloudncfs/clean.py" can clean the files and sub-directories inside the temporary directories.
+
+8. Generate FMSR encoding coefficients offline:
+Run "cloudncfs/gencoeff.py" to generate FMSR encoding coefficients.
+
+Example 1: "python cloudnfs/gencoeff.py setting.cfg"
+gencoeff.py will read the settings in setting.cfg. If this is the first time you
+run gencoeff.py, gencoeff.py will generate the initial FMSR encoding
+coefficients AND the encoding coefficients to use when any of the node fails.
+
+Example 2: "python cloudnfs/gencoeff.py setting.cfg 2"
+If you choose to use FMSR encoding coefficients generated offline, you will have
+to run gencoeff.py again after you repaired a one-node failure. The example
+above should be run after you have finished repairing a failure in node 2. This
+will replace the FMSR encoding coefficients to use in future uploads with the
+new ones, and again generate the encoding coefficients to use when any of the
+node fails in the future.
+
+
+###### AVAILABLE CODING SCHEMES ######
+<identity for setting>	: <coding scheme> (aka.)
+striping	: striping (raid-0)
+replication	: replication (raid-1)
+parityrs	: parity by Reed-Solomon code for generic (n,k) MDS property
+embr		: exact minimum bandwidth regnenerating code (E-MBR) of generic (n,k)
+fmsrtwo		: functional minimum storage regnenerating code (F-MSR) of k=n-2
+
+
+###### AVAILABLE STORAGE TYPES ######
+<identity for setting>	: <storage type>
+amazonS3	: Amazon S3
+rackspace	: Rackspace
+azure		: Azure
+swift		: OpenStack Swift
+local		: local directory
+
+
+###### SETTING FILE ######
+The setting file must be named "setting.cfg" and be placed in current directory. A template of setting file can be found in template/setting.cfg.
+The following is a description of the syntax of the setting file with example.
+
+[global] -- Global section defines the global information of the system.
+totalnode: 4 -- Total number of storage nodes. In terms of MDS(n,k) property, this value is n.
+datanode: 2 -- A virtual total number of nodes for storing native data. In terms of MDS(n,k) property, this value is k.
+totalsparenode: 2 -- Total number of spare storage nodes for repair.
+coding: fmsrtwo -- The coding scheme to be used.
+mirrordir: /temp/mirrordir/ -- The temporary directory for storing mirror data.
+chunkdir: /temp/chunkdir/ -- The temporary directory for storing chunk data.
+metadatadir: /temp/metadatadir/ -- The temporary directory for storing metadata.
+storagethreads: 1 -- The number of threads for read/write operations on the storage nodes.
+rebuildthreads: 0 -- The number of threads for rebuild process.
+autorepair: False -- Option for auto-repair. Set to "True" to enable it.
+writerlock: False -- Option for writer lock in case there are multiple proxies. Set to "True" to enable it.
+zookeeper : False -- Option for using ZooKeeper as shared lock. Set to "True" to enable it.
+zookeeperloc : 127.0.0.1:2345,127.0.0.1:2346,127.0.0.1:2347 -- List of ZooKeeper servers
+zookeeperroot : / -- Different sets of clients can share the same set of ZooKeeper servers by using different root directories
+testmode: False -- Option for running CloudNCFS for experiment. Set to "True" to enable it.
+coeffdir: /temp/coeffdir/ -- The directory for storing FMSR encoding coefficients generated offline.
+uuid: template4-2 -- A unique identifier for this settings file to associate it with its offline generated FMSR encoding coefficients
+
+[node1] -- Node section for node id = 1 (starting from 0)
+nodetype: amazonS3 -- Storage type of the node. (See "AVAILABLE STORAGE TYPES")
+nodeloc: us-east -- Location of the storage node.
+accesskey: XXX -- Access key of the node.
+secretkey: XXX -- Secret key of the node.
+nodeid: 1 -- Node id. Currently not used (node id is read from section header).
+nodekey: 1 -- Unique key for the node. Currently not used.
+bucketname: cloudncfs -- Bucket name of the node.
+
+...
+
+[sparenode0] -- Spare node section for first spare node (starting from 0)
+nodetype: amazonS3 -- Storage type of the node. (See "AVAILABLE STORAGE TYPES")
+nodeloc: us-west -- Location of the storage node.
+accesskey: XXX -- Access key of the node.
+secretkey: XXX -- Secret key of the node.
+nodeid: 0 -- Node id. Currently not used (node id is read from section header).
+nodekey: 4 -- Unique key for the node. Currently not used.
+bucketname: cloudncfs02 -- Bucket name of the node.
+
+
+##################################
+###### B. Developer's Guide ######
+##################################
+
+###### PROGRAMMING STYLE GUIDE ######
+http://www.python.org/doc/essays/styleguide.html
+
+
+###### BROWSE DOCUMENTATION ######
+1. Download and unzip the software package.
+2. Go to directory "cloudncfs".
+3. Run "pydoc -g". Select "Open browser" to view the package documentation.
+
+
+###### SYSTEM CONVENTIONS ######
+1. File metadata are gzip-ed and in file type ".metadata".
+2. File chunks are in file type (".chunk"+chunk_number). For example: a.txt.chunk0, a.txt.chunk1, etc.
+3. The file chunks (single or multiple) would be combined into a "big chunk" before being stored into a storage node. The big chunks are in file type(".node"+node_number). For example: a.txt.node0, a.txt.node1, etc.
+
+
+###### METADATA CONVENTIONS ######
+1. Chunk actions currently include: upload, download, sos.
+   (a) 'upload' and 'download' are for requesting upload or download of the chunk respectively.
+   (b) 'sos' means the chunk failed, i.e. the chunk's node is unavailable.
+2. Chunk types currrently include: native, parity, replica.
+   (a) 'native' means native data, 'parity' means parity. 'replica' can be a replica of a native chunk or of a parity chunk.
+
+
+###### UNIT TEST ######
+We have a unit-test program "tester.py" to test the functions of CloudNCFS. Currently it can test the upload and download consistency. The followings are the usage steps:
+1. Copy a file (can be any file) as file name "data.in". This is used as the test data file.
+2. Run the unit-test by "python cloudncfs/tester.py".
+3. The progress and results would be shown. If the result is OK, then the upload and download operations are consistent; otherwise, there is error.
+ 
