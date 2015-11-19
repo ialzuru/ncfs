@@ -124,10 +124,15 @@ class CloudNCFS(Fuse):
                     os.unlink(setting.chunkdir + "/" + chunk.chunkpath)
                 except:
                     pass
-        #Delete big-chunks:
+        #Delete big-chunks:        
         for bigchunk in metadata.fileNodeInfo:
             try:
                 os.unlink(setting.chunkdir + "/" + bigchunk.bigchunkpath)
+            except:
+                pass
+        if setting.coding == 'replication':
+            try:
+                os.unlink(setting.chunkdir + '/' + metadata.filename + '.node0')
             except:
                 pass
         #Delete in metadatadir:
@@ -225,6 +230,7 @@ class CloudNCFS(Fuse):
                                   flag2mode(flags))
             self.fd = self.file.fileno()
             self.path = path
+            print "open file ",path
             #Set direct_io and keep_cache options as required by fuse:
             self.direct_io = True
             self.keep_cache = False
@@ -238,10 +244,12 @@ class CloudNCFS(Fuse):
                 workflow.downloadFile(setting, self.metadata)
 
         def read(self, length, offset):
+            print "test: read file ", self.path
             self.file.seek(offset)
             return self.file.read(length)
 
         def write(self, buf, offset):
+            print "test: write file ", self.path
             self.file.seek(offset)
             self.file.write(buf)
             return len(buf)

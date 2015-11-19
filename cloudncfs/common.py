@@ -52,6 +52,8 @@ class Setting:
         self.nodeInfo = []   #list of NodeData
         self.totalsparenode = int(0)   #number of spare nodes
         self.spareNodeInfo = []   #list of spare node info
+        self.deduplicatoin = bool(False)  #cq enable deduplication function
+        self.pointerdir = ''#cq initialize pointerdir path
 
 
     def read(self, path):
@@ -78,6 +80,9 @@ class Setting:
         self.zookeeperloc = config.get("global","zookeeperloc")
         self.zookeeperroot = config.get("global","zookeeperroot")
         self.testmode = config.getboolean("global","testmode")
+        self.deduplication = config.getboolean("global","deduplication") #cq config deduplication mode
+        self.pointerdir = config.get("global","pointerdir") #cq config pointerdir path
+        
         for i in range(int(self.totalnode)):
             #Now use config file section node number as node id.
             nodeid = i
@@ -128,6 +133,8 @@ class Setting:
         config.set("global","zookeeperloc",self.zookeeperloc)
         config.set("global","zookeeperroot",self.zookeeperroot)
         config.set("global","testmode",self.testmode)
+        config.set("global","deduplication",self.deduplication) #cq set deduplication
+        config.set("global","pointerdir",self.pointerdir) #cq set pointerdir
         for i in range(int(self.totalnode)):
             nodeSection = "node" + str(i)
             config.add_section(nodeSection)

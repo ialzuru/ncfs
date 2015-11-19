@@ -18,6 +18,9 @@ import common
 import storages
 from storages import *
 
+import filecmp
+import shutil
+
 storagelist = storages.__all__
 
 storageQueue = Queue.Queue()
@@ -219,6 +222,7 @@ def uploadFileAndMetadata(setting, metadata, mode):
     checkHealth(setting)
     if setting.healthynode == setting.totalnode:
         #Generate metadata file:
+
         configname = metadata.filename + ".metadata"
         configpath = setting.metadatadir + '/' + configname
         metadata.write(configpath)
@@ -314,10 +318,10 @@ def downloadFile(setting, metadata):
                     #For one chunk per node: #cq
                     chunkpath = metadata.chunkInfo[i].chunkpath
                     dest = setting.chunkdir + '/' + chunkpath
-                    print "continue to downloadFile"
-                    print "coding mode",setting.coding
-                    print "chunkpath", chunkpath, metadata.chunkInfo[i].chunkname               
-                    print "dest", dest
+                    #print "continue to downloadFile"
+                    #print "coding mode",setting.coding
+                    #print "chunkpath", chunkpath, metadata.chunkInfo[i].chunkname               
+                    #print "dest", dest
                     storageQueue.put(('downloadFile', \
                         (setting, nodeid, chunkpath, dest)))
                 elif metadata.fileNodeInfo[nodeid].chunknum > 1:
@@ -383,3 +387,295 @@ def deleteChunkAndMetadata(setting, metadata):
         except:
             return False
     return True
+
+def downloadPointers(setting):
+    ''' Download pointers from a healthy cloud'''
+    ''' return True if operation succeeds'''
+    if setting.coding == 'replication':
+        checkHealth(setting)
+        retstate = False
+        for i in range(setting.totalnode):
+            if setting.nodeInfo[i].healthy == True:                
+                nodetype = setting.nodeInfo[i].nodetype
+                if nodetype in storagelist:
+                    module = globals()[nodetype]
+                    func = getattr(module, 'downloadPointers')
+                    if func(setting,i) == True:
+                        retstate = True
+                        break
+        return retstate
+
+def detectOrgState(setting, metadata):
+    '''Get the original state of a file.'''
+    '''The result can be 1 duplicated_org, the sink of file dependency graph'''
+    '''                  2 duplicated_leaf, the source of file dependency graph'''
+    '''                  3 others a. non-duplicated file, an isolated node in file dependency graph'''
+    '''                           b. new file. A newly created file.'''
+    '''                  None communication error happends'''
+    retState = downloadPointers(setting)
+    if retState == False:
+        return None
+    else:
+        filename = metadata.filename
+        basedir = setting.pointerdir
+        for root, dirs, files in os.walk(basedir):
+            for file in files:
+                ptFilePath = os.path.join(root,file)
+                fhandle = open(ptFilePath,'r')
+                ptFileContent = fhandle.read()
+                fhandle.close()
+                if file == filename + '.pt':
+                    return 2
+                elif ptFileContent == filename:
+                    return 1
+        return 3
+                
+def detectCurrState(setting, metadata):
+    '''Get the current state of a file'''
+    '''The result is a tuple can be (0, NULL) non duplicated file'''
+    '''                             (1, pointer) duplicated leaf with its pointer file '''
+    '''                             (2, NULL) self which is the sink a of a file graph '''
+    '''                             (None, None) error occurs'''
+    if setting.coding != 'replication':
+        print "Error in detect_curr_state: deduplication only support replication coding mode"
+        return (None, None)
+    else:
+        filename = metadata.filename
+        filePath = os.path.join(setting.mirrordir,filename)
+        basedir = setting.mirrordir
+        for root, dirs, files in os.walk(basedir):
+            for file in files:
+                if file == filename:
+                    continue
+                else:
+                    cmpFilePath = os.path.join(root,file)
+                    state = filecmp.cmp(filePath,cmpFilePath)
+                    if state == True:
+                        ptFilePath = os.path.join(setting.pointerdir, file+'.pt')
+                        exists_flag = os.path.exists(ptFilePath) 
+                        if exists_flag == True:
+                            fhandle = open(ptFilePath,'r')
+                            ptContent = fhandle.read()
+                            fhandle.close()
+                            if ptContent == filename:
+                                return (2, None)
+                            else:
+                                return (1, ptContent)
+                        else:
+                            return (1, file)
+                    else:
+                        continue
+        return (0, None)
+
+def detectFile(setting, filename):
+    '''detect the existence of a file. Return True if file exists, or False otherwise'''
+    checkHealth(setting)
+    retstate = False
+    for i in range(setting.totalnode):
+        if setting.nodeInfo[i].healthy == True:
+            nodetype = setting.nodeInfo[i].nodetype
+            if nodetype in storagelist:
+                module = globals()[nodetype]
+                func = getattr(module, 'detectFile')
+                if func(setting,filename,i) == True:
+                    retstate = True
+                    break
+    return retstate    
+
+def detectReplica(setting, metadata):
+    '''detect the existence of the replica of a file on cloud'''
+    if setting.coding != 'replication':
+        print "Error in detectReplica. Only support replication coding mode"
+        return False
+    else:
+        replicaName = metadata.filename + '.node0'
+        state = detectFile(setting, replicaName)
+        return state
+
+def detectPointer(setting, metadata):
+    '''detect the existence of the pointer file of a file on cloud'''
+    if setting.coding != 'replication':
+        print "Error in detectPointer. Only support replicatoin coding mode"
+        return False
+    else:
+        pointerName = metadata.filename + '.pt'
+        state = detectFile(setting, pointerName)
+        return state
+
+def createPointer(setting, metadata, targetFile):
+    '''create a local pointer to targetFile '''
+    filename = metadata.filename
+    pointerdir = setting.pointerdir
+    ptFilePath = os.path.join(pointerdir, filename+'.pt')
+    fhandle = open(ptFilePath,'w')
+    fhandle.write(targetFile)
+    fhandle.close()
+
+
+def uploadPointer(setting, metadata):
+    '''upload pointer to healthy clouds'''
+    if setting.coding != 'replication':
+        print "Error in uploadPointer. Only support replication coding mode"
+        return None
+    else:
+        checkHealth(setting)
+        filename = metadata.filename
+        pointerdir = setting.pointerdir    
+        ptSrc = os.path.join(pointerdir,filename+'.pt')
+        for i in range(setting.totalnode):
+            if setting.nodeInfo[i].healthy == True:
+                storageQueue.put(('uploadFile',(setting,i,ptSrc,filename+'.pt')))
+    waitForStorages()
+    
+
+def deletePointer(setting, metadata):
+    '''delete pointer on healthy clouds and local'''
+    if setting.coding != 'replication':
+        print 'Error in deletePointer. Only support replication coding mode'
+        return None
+    else:
+        #delete local pointers
+        pointerdir = setting.pointerdir
+        filename = metadata.filename
+        ptFilePath = os.path.join(pointerdir,filename+'.pt')
+        os.unlink(ptFilePath)
+        #delete pointer on clouds
+        checkHealth(setting)
+        filename = metadata.filename
+        for i in range(setting.totalnode):
+            if setting.nodeInfo[i].healthy == True:
+                nodetype = setting.nodeInfo[i].nodetype
+                if nodetype in storagelist:
+                    module = globals()[nodetype]
+                    func = getattr(module, 'deletePointer')
+                    state = func(setting,i,filename)
+                    if state == False:
+                        print "Fail to delete the pointer of %s on node %d" % (filename, i)
+                    
+
+def findOnePointer(setting, metadata):
+    '''find a file which points to current file'''
+    pointerdir = setting.pointerdir
+    filename = metadata.filename
+    for root, dirs, files in os.walk(pointerdir):
+        for file in files:
+            filepath = os.path.join(root,file)
+            fhandle = open(filepath,'r')
+            fileContent = fhandle.read()
+            fhandle.close()
+            if fileContent == filename:
+                return file[:file.rindex('.pt')]
+
+def updatePointers(setting,oldMetadata, newMetadata):
+    '''replace pointers to old file name with pointers to new file name both locally and on clouds'''
+    pointerdir = setting.pointerdir
+    oldFilename = oldMetadata.filename
+    newFilename = newMetadata.filename
+    print "update pointers from old %s to new %s" % (oldFilename, newFilename)
+    for root, dirs, files in os.walk(pointerdir):
+        for file in files:
+            print "iterate file %s" % (file)
+            curPtFilePath = os.path.join(root,file)
+            print "file path %s" % (curPtFilePath)
+            fhandle = open(curPtFilePath,'r')
+            content = fhandle.read()
+            fhandle.close()
+            print "content %s, oldFilename %s" % (content, oldFilename)
+            print content == oldFilename
+
+            if content == oldFilename:
+                tmpFilename = file[:file.rindex('.pt')]
+                tmpMeta = common.FileMetadata(tmpFilename,0,setting.totalnode,setting.coding)
+                deletePointer(setting,tmpMeta)
+                createPointer(setting,tmpMeta,newFilename)
+                uploadPointer(setting,tmpMeta)
+
+def downloadPointer(setting, metadata):
+    '''Download the pointer related to metadata from a healthy cloud'''
+    '''return True if operation succeeds'''
+    if setting.coding == 'replication':
+       checkHealth(setting)
+       filename = metadata.filename
+       retstate = False
+       for i in range(setting.totalnode):
+           if setting.nodeInfo[i].healthy == True:
+               nodetype = setting.nodeInfo[i].nodetype
+               if nodetype in storagelist:
+                   module = globals()[nodetype]
+                   func = getattr(module, 'downloadPointer')
+                   if func(setting,i,filename) == True:
+                       retstate = True
+                       break
+       return retstate
+    else:
+        print "Error in downloadPointer. Only support replication coding mode"
+        return False
+
+def getPointerContent(setting, metadata):
+    '''get the org file the pointer refers to'''
+    pointerdir = setting.pointerdir
+    filename = metadata.filename
+    destPath = os.path.join(pointerdir, filename + '.pt')
+    fHandle = open(destPath, 'r')
+    content = fHandle.read()
+    fHandle.close()
+    return content
+        
+def genPtLocalFile(setting, srcMetadata, destMetadata):
+    '''copy the meta chunk and mirror file of src file for dest file'''
+    srcFilename = srcMetadata.filename
+    destFilename = destMetadata.filename
+    mirrordir = setting.mirrordir
+    chunkdir = setting.chunkdir
+    metadatadir = setting.metadatadir
+    srcMirrorFilePath = os.path.join(mirrordir,srcFilename)
+    srcChunkFilePath = os.path.join(chunkdir,srcFilename + '.node0')
+    srcMetaFilePath = os.path.join(metadatadir, srcFilename + '.metadata' )
+    destMirrorFilePath = os.path.join(mirrordir, destFilename)
+    destChunkFilePath = os.path.join(chunkdir, destFilename + '.node0') 
+    destMetaFilePath = os.path.join(metadatadir, destFilename + '.metadata')
+
+    shutil.copyfile(srcMirrorFilePath, destMirrorFilePath)
+    shutil.copyfile(srcChunkFilePath, destChunkFilePath)
+    shutil.copyfile(srcMetaFilePath, destMetaFilePath)
+
+
+def repairPointer(settingOld, settingNew, metadata):
+    '''regenerate the lost data on an empty node'''
+    if settingOld.coding != 'replication':
+       print "Error in repairPointer. Only support replication coding mode"
+    else:
+        filename = metadata.filename
+        failNodeID = None
+        for i in range(settingOld.totalnode):
+            if settingOld.nodeInfo[i].healthy == False:
+                failNodeID = i
+                break
+        healthyNodeID = (failNodeID + 1) % settingOld.totalnode
+        #download pointer
+        nodetype = settingNew.nodeInfo[healthyNodeID].nodetype
+        if nodetype in storagelist:
+            module = globals()[nodetype]
+            func = getattr(module, 'downloadPointer')
+            retstate =  func(settingNew, healthyNodeID, filename)
+            if retstate == False:
+                print "Error in repairPointer. Fail to download the Pointer file of %s" % (filename)
+            
+        #upload pointer        
+        newNodetype = settingNew.nodeInfo[failNodeID].nodetype
+        if newNodetype in storagelist:
+            pointerdir = settingNew.pointerdir
+            bucketname = settingNew.nodeInfo[failNodeID].bucketname
+            srcFilePath = os.path.join(pointerdir, filename + '.pt')
+            storageQueue.put(('uploadFile',(settingNew,failNodeID,srcFilePath,filename + '.pt')))
+        waitForStorages()
+        
+        #get pointer content
+        pointerdir = settingNew.pointerdir
+        pointerPath = os.path.join(pointerdir, filename + '.pt')
+        fHandle = open(pointerPath,'r')
+        targetFilename = fHandle.read()
+        mirrordir = settingNew.mirrordir
+        srcFilePath = os.path.join(mirrordir, targetFilename)
+        destFilePath = os.path.join(mirrordir, filename)
+        shutil.copyfile(srcFilePath,destFilePath)

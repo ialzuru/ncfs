@@ -24,7 +24,7 @@ def connectCloud(setting, nodeid):
     #print len(access_token)
     client =  dropbox.client.DropboxClient(access_token)
     if client == False:
-        #print "Fail to connect dropbox"
+        print "Fail to connect dropbox"
         return False
     else:
         #print "connect successfully"
@@ -75,8 +75,8 @@ def syncMirror(setting, nodeid, path):
         filename = os.path.relpath(content["path"],bucketname)
         #only sync certain file object
         if setting.coding == 'replication':
-            if filename.endswith('.node0'):
-                storageutil.syncFile(setting, filename, path)
+            if filename.endswith('.node0') or filename.endswith('.pt'):
+                storageutil.syncFile(setting, filename, path)                
         else:
             if filename.endswith('.node%d' % nodeid):
                 storageutil.syncFile(setting, filename, path)
@@ -99,6 +99,7 @@ def uploadFile(setting, nodeid, path, dest):
 
         f = open(path,'rb')
         response = conn.put_file(absdest,f)
+        f.close()
         #print "upload file", response
         return True
     except IOError:
@@ -120,6 +121,7 @@ def uploadMetadata(setting, nodeid, metadatapath, dest):
                 break
         f = open(metadatapath,'rb')
         response = conn.put_file(absdest,f)
+        f.close()
         #print "upload metadata", response
         return True
     except IOError:
@@ -133,9 +135,16 @@ def uploadFileAndMetadata(setting, nodeid, path, metadatapath, dest):
     bucketname = setting.nodeInfo[nodeid].bucketname
     #Upload file and metadata to bucket:
     try:
+        results = conn.search(bucketname, dest)        
         absdest_file = os.path.join(bucketname,dest)
+        if len(results) != 0:
+            for result in results:
+                if result['path'] == absdest_file:
+                    conn.file_delete(absdest_file)
+                    break
         file = open(path,'rb')
         response = conn.put_file(absdest_file,file)
+        file.close()
         #print "upload file", response
         
         results = conn.search(bucketname, dest+'.metadata')            
@@ -147,6 +156,7 @@ def uploadFileAndMetadata(setting, nodeid, path, metadatapath, dest):
                    break
         meta = open(metadatapath,'rb')
         response = conn.put_file(absdest_meta, meta)
+        meta.close()
         #print "upload metadata", response
         return True
     except IOError:
@@ -220,3 +230,73 @@ def deleteFile(setting, nodeid, name):
     #conn.file_delete(absdest+'.metadata')
     return True
 
+def downloadPointers(setting, nodeid):
+    '''download all pointer files in a given cloud'''
+    conn = connectCloud(setting, nodeid)
+    if conn == False:
+        print "Fail to connect to dropbox in downloadPointers"
+        return False
+    else:
+        if setting.coding != 'replication':
+            print "don't support download pointers for coding modes other than replication"
+            return False
+        pointerdir = setting.pointerdir
+        bucketname = setting.nodeInfo[nodeid].bucketname
+        folder_metadata = conn.metadata(bucketname)
+        folder_contents = folder_metadata["contents"]
+
+        for content in folder_contents:
+            filename = os.path.relpath(content["path"],bucketname)
+            if filename.endswith('.pt'):
+                destFilePath = os.path.join(pointerdir,filename)
+                f, metadata = conn.get_file_and_metadata(content["path"])
+                out = open(destFilePath,'wb')
+                out.write(f.read())
+                out.close()
+        return True
+
+def detectFile(setting, filename, nodeid):
+    '''detect the existence of a given file named filename on a given node with ID nodeid'''
+    conn = connectCloud(setting, nodeid)
+    if conn == False:
+        return False
+    else:
+        parent_path = setting.nodeInfo[nodeid].bucketname
+        results = conn.search(parent_path, filename)
+        file_path = os.path.join(parent_path,filename)
+        for result in results:     
+            if result['path'] == file_path:
+                return True
+        return False
+
+def deletePointer(setting, nodeid, name):
+    '''Delete an object from cloud.'''
+    #Dropbox connection
+    conn = connectCloud(setting, nodeid)
+    bucketname = setting.nodeInfo[nodeid].bucketname
+    #Delete an object from bucket:
+    absdest = os.path.join(bucketname,name+'.pt')
+    conn.file_delete(absdest)
+    return True
+
+def downloadPointer (setting, nodeid, filename):
+    '''download the pointer related to filename in a given cloud specified by nodeid'''
+    conn = connectCloud(setting, nodeid)
+    if conn == False:
+        print "Fail to connect to dropbox in downloadPointer"
+        return False
+    else:
+        if setting.coding != 'replication':
+            print "Error in downloadPointer. Only support replication coding mode"
+            return False
+        else:
+            pointerdir = setting.pointerdir
+            bucketname = setting.nodeInfo[nodeid].bucketname
+            destPath = os.path.join(pointerdir,filename + '.pt')
+            srcPath = os.path.join(bucketname,filename + '.pt')
+            f, metadata = conn.get_file_and_metadata(srcPath)
+            out = open(destPath,'wb')
+            out.write(f.read())
+            out.close()
+        return True
+                    
