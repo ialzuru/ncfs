@@ -98,7 +98,7 @@ def uploadFile(setting, metadata):
         #Release write lock:
         #if setting.zookeeper: setting.zk.releaseWriteLock(metadata) #cq
     else:
-        print "deduplicatoin True, workflow upload file"
+        print "deduplication True, workflow upload file"
         orgState = storage.detectOrgState(setting, metadata)
         print "orgState %d" % (orgState)
         currState = storage.detectCurrState(setting, metadata)

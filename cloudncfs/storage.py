@@ -14,12 +14,13 @@ import os
 import gzip
 import sys
 
+import filecmp
+import shutil
+
 import common
 import storages
 from storages import *
 
-import filecmp
-import shutil
 
 storagelist = storages.__all__
 
@@ -197,11 +198,14 @@ def allocateJobs(listChunks, listSubChunks, numThreads, numChunks, minSize=0, me
 def checkHealth(setting):
     '''Check healthiness of nodes and update setting.'''
     setting.healthynode = setting.totalnode
+    print "Calling CheckHealth in checkHealth, healthNode: %d" % (setting.healthynode)
     for i in range(setting.totalnode):
         nodetype = setting.nodeInfo[i].nodetype
         if nodetype in storagelist:
             module = globals()[nodetype]
             func = getattr(module, 'checkHealth')
+            print "checkHealth module: %s" % (module)
+            print "checkHealth function: %s" % (func)
             health = func(setting, i)
             setting.nodeInfo[i].healthy = health
             if health == False:
@@ -392,6 +396,7 @@ def downloadPointers(setting):
     ''' Download pointers from a healthy cloud'''
     ''' return True if operation succeeds'''
     if setting.coding == 'replication':
+        print "Calling checkHealth in downloadPointers"
         checkHealth(setting)
         retstate = False
         for i in range(setting.totalnode):
@@ -414,6 +419,7 @@ def detectOrgState(setting, metadata):
     '''                  None communication error happends'''
     retState = downloadPointers(setting)
     if retState == False:
+        print "Huixiang, connection failure"
         return None
     else:
         filename = metadata.filename
