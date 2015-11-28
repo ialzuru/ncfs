@@ -55,12 +55,14 @@ class CloudNCFS(Fuse):
 
     def __init__(self, *args, **kw):
         '''Initialize Fuse class object.'''
+        global settingpath
         Fuse.__init__(self, *args, **kw)
 
         #Read file system settings:
         setting.read(settingpath)
         self.root = setting.mirrordir
         self.settingpath = os.path.join(os.path.dirname(setting.mirrordir),'setting.cfg')
+        settingpath = self.settingpath
         #Clean temporary directories:
         clean.cleanAll()
         """
@@ -256,11 +258,15 @@ class CloudNCFS(Fuse):
 
         def release(self, flags):
             '''File close. Upload file to cloud for write mode.'''
+            global settingpath
             self.file.close()
+            setting = common.Setting()
+            setting.read(settingpath)#cq update setting before unlink. repair operation may change setting.cfg
             if setting.testmode == False:
                 if ("a" in self.file.mode) or ("w" in self.file.mode) or ("+" in self.file.mode):
                     self.metadata.totalnode = setting.totalnode
                     #Encode and upload file to clouds:
+                    print "upload file in cloudncfs"
                     workflow.uploadFile(setting, self.metadata)
 
         def _fflush(self):
@@ -275,8 +281,11 @@ class CloudNCFS(Fuse):
                 os.fsync(self.fd)
 
         def flush(self):
+            global settingpath
             self._fflush()
             os.close(os.dup(self.fd))
+            setting = common.Setting()
+            setting.read(settingpath)#cq update setting before unlink. repair operation may change setting.cfg
             if setting.testmode == True:
                 if ("a" in self.file.mode) or ("w" in self.file.mode) or ("+" in self.file.mode):
                     self.metadata.totalnode = setting.totalnode

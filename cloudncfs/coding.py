@@ -20,6 +20,8 @@ codinglist = codings.__all__
 def encodeFile(setting,metadata):
     '''Encode file into chunks.'''
     filesize = os.path.getsize(setting.mirrordir + "/" + metadata.filename)
+    print "meta file path", setting.mirrordir + "/" + metadata.filename
+    print "encode file filesize", filesize
     metadata.filesize = filesize
     #Call encodeFile function in corresponding module:
     if metadata.coding in codinglist:

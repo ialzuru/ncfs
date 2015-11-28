@@ -106,7 +106,7 @@ def uploadFile(setting, metadata):
         if orgState == 3 and currState[0] == 0:
             # non_dup => non_dup    or       new => non_dup
             print 'orgState %d to currState %d' % (orgState, currState[0])
-            coding.encodeFile(setting,metadata)
+            coding.encodeFile(setting, metadata)
             storage.uploadFileAndMetadata(setting,metadata,'upload')
         elif orgState == 3 and currState[0] == 1:
             # non_dup => leaf       or    new => leaf
