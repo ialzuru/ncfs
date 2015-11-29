@@ -68,6 +68,8 @@ def syncMirror(setting, nodeid, path):
         if setting.coding == 'replication':
             if filename.endswith('.node0'):
               storageutil.syncFile(setting, filename, path)
+            if filename.endswith('.pt'):
+              storageutil.syncFile(setting, filename, path)
         else:
             if filename.endswith('.node%d' % nodeid):
               storageutil.syncFile(setting, filename, path)
