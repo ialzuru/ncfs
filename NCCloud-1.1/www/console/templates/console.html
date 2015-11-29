@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>NCCloud Administration Console</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<link rel="stylesheet" href="css/main.css" >
+	</head>
+	<body>
+		<h1>NCCloud Administration Console</h1>
+		<br/>
+		<iframe src="left.html" width="300" height="500"></iframe>
+		<iframe src="right.html" width="300" height="500"></iframe>
+		
+		
+		
+		
+		
+		
+		<form action='.' method="POST" enctype="multipart/form-data">
+			{% csrf_token %}
+			{{ form.non_field_errors }}
+			<div class="fieldWrapper">
+			    {{ form.username.errors }}
+			    <label for="{{ form.username.id_for_label }}">User:</label>
+			    {{ form.username }}
+			</div>
+			<div class="fieldWrapper">
+			    {{ form.password.errors }}
+			    <label for="{{ form.password.id_for_label }}">Password:</label>
+			    {{ form.password }}
+			</div>
+			<p><input type="submit" value="Login" /></p>
+		</form>
+	</body>
+</html>

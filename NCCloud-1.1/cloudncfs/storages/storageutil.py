@@ -16,7 +16,13 @@ def syncFile(setting, filename, path):
     dirent = filename.split("/")
     #Get filename:
     filename = dirent[-1]
-    filename = filename[0:filename.rindex('.node')]
+    if setting.coding == 'replication':
+        if filename.endswith('.node0'):
+            filename = filename[0:filename.rindex('.node0')]
+        elif filename.endswith('.pt'): 
+            filename = filename[0:filename.rindex('.pt')]
+    else:
+        filename = filename[0:filename.rindex('.node')]
     if len(dirent) > 1:
         #Require to mkdir:
         directory = ""

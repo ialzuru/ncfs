@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Console Menu</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	</head>
+	<body>
+		<h1>NCCloud Administration Console</h1>
+
+		
+		
+		
+		
+		<form action='.' method="POST" enctype="multipart/form-data">
+			{% csrf_token %}
+			{{ form.non_field_errors }}
+			<div class="fieldWrapper">
+			    {{ form.username.errors }}
+			    <label for="{{ form.username.id_for_label }}">User:</label>
+			    {{ form.username }}
+			</div>
+			<div class="fieldWrapper">
+			    {{ form.password.errors }}
+			    <label for="{{ form.password.id_for_label }}">Password:</label>
+			    {{ form.password }}
+			</div>
+			<p><input type="submit" value="Login" /></p>
+		</form>
+	</body>
+</html>
