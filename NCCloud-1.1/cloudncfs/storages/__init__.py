@@ -1,1 +1,1 @@
-__all__ = ['amazonS3', 'rackspace', 'azure', 'local', 'swift']
+__all__ = ['amazonS3', 'rackspace', 'azure', 'local', 'swift','mydropbox','googledrive']

@@ -28,8 +28,12 @@ def syncMirror(setting, nodeid, path):
         for obj in files:
             filename = os.path.relpath(os.path.join(root, obj), basedir)
             # if filename.endswith('.metadata'):
-            if filename.endswith('.node%d' % nodeid):
-                storageutil.syncFile(setting, filename, path)
+            if setting.coding == 'replication': #cq
+                if filename.endswith('.node0') or filename.endswith('.pt'):
+                    storageutil.syncFile(setting, filename, path)
+            else:
+                if filename.endswith('.node%d' % nodeid):
+                    storageutil.syncFile(setting, filename, path)
     return True
 
 
@@ -134,5 +138,59 @@ def deleteFile(setting, nodeid, name):
     #Delete a file from local filesystem:
     os.unlink(os.path.join(basedir, name))
     #Delete the associated metadata
-    os.unlink(os.path.join(basedir, rsplit(name, '.', 1)[0]+'.metadata'))
+    #os.unlink(os.path.join(basedir, rsplit(name, '.', 1)[0]+'.metadata')) #cq
+    # comment this line because the metadata file of replication is basedir+filename+'.node0'+'.metatdata'. Need to verify the filename of other coding scheme
+    if setting.coding != 'replication':
+        os.unlink(os.path.join(basedir, rsplit(name, '.', 1)[0]+'.metadata'))
+    else:
+        os.unlink(os.path.join(basedir, name+'.metadata'))
     return True
+
+def downloadPointers(setting, nodeid):
+    '''download all pointer files in a given cloud'''
+    if setting.coding != 'replication':
+        print "Error in downloadPointers. Only support replication coding mode"
+        return False
+    else:
+        pointerdir = setting.pointerdir
+        bucketname = setting.nodeInfo[nodeid].bucketname
+        for root, dirs, files in os.walk(bucketname):
+            for file in files:
+                if file.endswith('.pt'):
+                    destFilePath = os.path.join(pointerdir, file)
+                    srcFilePath = os.path.join(root,file)
+                    shutil.copyfile(srcFilePath, destFilePath)
+        return True
+        
+def detectFile(setting, filename, nodeid):
+    '''detect the existence of a given file named filename on a given node with ID nodeid'''
+    if setting.coding != 'replication':
+        print "Error in detectFile. Only support replication coding mode"
+        return False
+    else:
+        bucketname = setting.nodeInfo[nodeid].bucketname
+        filePath = os.path.join(bucketname, filename)
+        retState = os.path.exists(filePath)
+        return retState
+
+def deletePointer(setting, nodeid, name):
+    '''Delete a pointer object from cloud.'''
+    bucketname = setting.nodeInfo[nodeid].bucketname
+    ptFilename = name + '.pt'
+    ptFilePath = os.path.join(bucketname, ptFilename)
+    os.remove(ptFilePath)
+    return True
+
+def downloadPointer(setting, nodeid, filename):
+    '''download the pointer related to filename in a given cloud specified by nodeid'''
+    if setting.coding != 'replication':
+       print "Error in downloadPointer. Only support replication coding mode"
+       return False
+    else:
+        bucketname = setting.nodeInfo[nodeid].bucketname
+        pointerdir = setting.pointerdir
+        destPath = os.path.join(pointerdir, filename + '.pt')
+        srcPath = os.path.join(bucketname, filename + '.pt')
+        shutil.copyfile(srcPath, destPath)
+        return True
+            

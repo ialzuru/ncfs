@@ -52,6 +52,8 @@ class Setting:
         self.nodeInfo = []   #list of NodeData
         self.totalsparenode = int(0)   #number of spare nodes
         self.spareNodeInfo = []   #list of spare node info
+        self.deduplication = bool(False)  #cq enable deduplication function
+        self.pointerdir = ''#cq initialize pointerdir path
 
 
     def read(self, path):
@@ -78,6 +80,9 @@ class Setting:
         self.zookeeperloc = config.get("global","zookeeperloc")
         self.zookeeperroot = config.get("global","zookeeperroot")
         self.testmode = config.getboolean("global","testmode")
+        self.deduplication = config.getboolean("global","deduplication") #cq config deduplication mode
+        self.pointerdir = config.get("global","pointerdir") #cq config pointerdir path
+        
         for i in range(int(self.totalnode)):
             #Now use config file section node number as node id.
             nodeid = i
@@ -128,6 +133,8 @@ class Setting:
         config.set("global","zookeeperloc",self.zookeeperloc)
         config.set("global","zookeeperroot",self.zookeeperroot)
         config.set("global","testmode",self.testmode)
+        config.set("global","deduplication",self.deduplication) #cq set deduplication
+        config.set("global","pointerdir",self.pointerdir) #cq set pointerdir
         for i in range(int(self.totalnode)):
             nodeSection = "node" + str(i)
             config.add_section(nodeSection)
@@ -290,6 +297,8 @@ class FileMetadata:
             chunk.chunktype = self.chunkFromByte(cstring[1])
             if self.coding == 'embr' or self.coding == 'fmsrtwo':
                 chunk.chunkpath = self.filename + '.chunk' + str(blockid)
+            elif self.coding == 'replication':    #cq
+                chunk.chunkpath = self.filename + '.node0'
             else:
                 chunk.chunkpath = self.filename + '.node' + str(blockid)
             #Read node id from ChunkByte[2]:
@@ -320,7 +329,10 @@ class FileMetadata:
             for j in range(0,6):
                 if j < len(nstring) - 2:
                     fileNode.bigchunksize += ord(nstring[2+j]) << (8*j)
-            fileNode.bigchunkpath = self.filename + '.node' + str(fileNode.nodeid)
+            if setting.coding == 'replication':
+                fileNode.bigchunkpath = self.filename + '.node0'
+            else:
+                fileNode.bigchunkpath = self.filename + '.node' + str(fileNode.nodeid)
             self.fileNodeInfo.append(fileNode)
 
         #Read coefficients for fmsrtwo and settings.cfg UUID:
