@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render 
 from django.http import HttpResponseRedirect
 
 from .forms import verifyForm
@@ -8,9 +8,15 @@ def verifyAdmin(request):
         form = verifyForm( request.POST )
 
         if form.is_valid():
-            return HttpResponseRedirect('')
+            username = request.POST['username']
+            password = request.POST['password']
+            
+            if (username == 'admin') and (password == 'closser'):
+                return HttpResponseRedirect('/console/')
+            else:
+                return render(request, 'login.html', {'error': True})
 
     else:
         form = verifyForm()
 
-    return render(request, 'login.html', {'form': form})
+    return render(request, 'login.html', {'error': False})

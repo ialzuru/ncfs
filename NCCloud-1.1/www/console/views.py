@@ -1,78 +1,79 @@
-from django.http import HttpResponse
+from django.shortcuts import render
 import ConfigParser
+import subprocess
+
+from .forms import cloudForm
 
 settingsFile = "/home/ialzuru/NCCloud-1.1/st/setting.cfg"
 
-def adminConsole(request):
-    ConsoleForm = """
-        <form id='ConsoleForm'>
-            <div>
-                <label>
-                    NCCloud service state 
-                    <input name="on" value="unchecked" type="checkbox">
-                </label>
-                <button type=submit>On/Off</button> 
-            </div>
-            <div>
-                <label>
-                    Mounting directory
-                    <input id="mountDir" name="mountDir" type="text" required>
-                </label>
-            </div>
-        </form> 
-        """
+def cloudModif(request):
+    if request.method == 'POST':
+        form = cloudForm( request.POST or None )
+
+        if form.is_valid():
+            print 'Entra'
+            #username = request.POST['username']
+            #password = request.POST['password']
+        else:
+            cfg = ConfigParser.ConfigParser()
+            cfg.read(settingsFile)
+            btn = ''
+            if 'node0' in request.POST:
+                btn = 'node0'
+            elif 'node1' in request.POST:
+                btn = 'node1'
+            elif 'node2' in request.POST:
+                btn = 'node2'
+            
+            form = cloudForm( initial= {'nodetype':cfg.get(btn, 'nodetype'), 
+                                         'nodeloc':cfg.get(btn, 'nodeloc'), 
+                                         'accesskey':cfg.get(btn, 'accesskey'), 
+                                         'secretkey':cfg.get(btn, 'secretkey'), 
+                                         'nodeid':cfg.get(btn, 'nodeid'), 
+                                         'nodekey':cfg.get(btn, 'nodekey'), 
+                                         'bucketname':cfg.get(btn, 'bucketname')
+                                         })
+    else:
+        form = cloudForm()
     
+    return render(request, "cloud.html", { 'form': form })
+
+
+def findThisProcess( process_name ):
+    ps     = subprocess.Popen("ps -eaf | grep "+process_name, shell=True, stdout=subprocess.PIPE)
+    output = ps.stdout.read()
+    ps.stdout.close()
+    ps.wait()
+    
+    return output
+
+
+def adminConsole(request):
     cfg = ConfigParser.ConfigParser()
     cfg.read(settingsFile)
     n = cfg.get('global', 'totalnode')
     
-    NodesForm1 = """
-        There are %s Cloud nodes configured:
-        <form id='NodesForm'>
-            <table>
-                <tr>
-                    <td>Id</td>
-                    <td>Type</td>
-                    <td>Bucket Name</td>
-                </tr>
-                """  % n
-                
-    NodesForm2 = ""
+    dict_clouds = dict()
     i = 0
     for i in range(int(n)):
         node = "node" + str(i)
         nodetype = cfg.get(node, 'nodetype')
         bucketname = cfg.get(node, 'bucketname')
-        row = "<tr><td>%i</td><td>%s</td><td>%s</td></tr>" % (i, nodetype, bucketname)
-        NodesForm2 = NodesForm2 + row
-                        
-    NodesForm3 = """
-            </table>
-        </form> 
-        """
-        
-    NodesForm = NodesForm1 + NodesForm2 + NodesForm3
+        dict_clouds[i] = [ nodetype, bucketname ]
+    
+    pointerDir = cfg.get('global', 'pointerdir')
+    deduplication = cfg.get('global', 'deduplication')
+    dedup = ''
+    if deduplication == 'True':
+        dedup = ' checked'
 
-    html = """
-        <!DOCTYPE html>
-        <html>
-            <head>
-                <title>Console Menu</title>
-                <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-                <style>
-                    table, th, td {
-                        border: 1px solid black;
-                        border-collapse: collapse;
-                        padding: 5px;
-                        text-align: center;
-                    }
-                </style>
-            </head>
-            <body>
-                %s
-                <br/>
-                %s
-            </body>
-        </html> 
-        """ % (ConsoleForm, NodesForm)
-    return HttpResponse(html)
+    context = {
+        'n': n,
+        'dict_clouds': dict_clouds,
+        'pointerDir': pointerDir,
+        'dedup': dedup
+    }
+
+    return render(request, "console.html", context)
+
+

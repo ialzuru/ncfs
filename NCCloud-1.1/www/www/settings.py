@@ -56,7 +56,7 @@ ROOT_URLCONF = 'www.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': ['/home/ialzuru/NCCloud-1.1/www/console/templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

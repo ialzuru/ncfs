@@ -4,24 +4,75 @@
 	<head>
 		<meta charset="utf-8">
 		<title>User Login</title>
+		
+		<style>
+			form {
+				text-align: center;
+			}
+			table {
+				text-align: center;
+				border:0;
+			}
+		</style>
+		
 	</head>
 	<body>
-		<h1>NCCloud administration login</h1>
-		
-		<form action='.' method="POST" enctype="multipart/form-data">
-			{% csrf_token %}
-			{{ form.non_field_errors }}
-			<div class="fieldWrapper">
-			    {{ form.username.errors }}
-			    <label for="{{ form.username.id_for_label }}">User:</label>
-			    {{ form.username }}
-			</div>
-			<div class="fieldWrapper">
-			    {{ form.password.errors }}
-			    <label for="{{ form.password.id_for_label }}">Password:</label>
-			    {{ form.password }}
-			</div>
-			<p><input type="submit" value="Login" /></p>
-		</form>
+		<table>
+			<tr height="30px">
+				<td width="100px">					
+				</td>
+				<td>
+				</td>
+			</tr>
+			<tr>
+				<td width="100px">					
+				</td>
+				<td>
+					<h1>CloSSer Administration</h1>
+				</td>
+			</tr>
+			<tr>
+				<td width="100px">
+				</td>
+				<td>
+					<form action='.' method="POST" enctype="multipart/form-data">
+						{% csrf_token %}
+						<table>
+							<tr>
+								<td width="110px">
+									{{ form.username.errors }}
+									<label for="{{ form.username.id_for_label }}">User</label>
+								</td>
+								<td>
+									<input id="username" type="text" name="username" maxlength="100">
+								</td>
+							</tr>	
+							<tr>
+								<td width="110px">
+									{{ form.password.errors }}
+									<label for="{{ form.password.id_for_label }}">Password</label>
+								</td>
+								<td>
+									<input id="password" type="password" name="password" maxlength="100">
+								</td>
+							</tr>	
+							<tr>
+								<td colspan="2">
+									<p><input type="submit" value="Login"></p>
+								</td>
+							</tr>
+							<tr>
+								<td colspan="2">
+									{% if error %}
+								        <p style="color: red;">Error: invalid user name or password.</p>
+								    {% endif %}
+								</td>
+							</tr>		
+						</table>
+					</form>				
+				</td>
+			</tr>
+		</table>
+
 	</body>
 </html>

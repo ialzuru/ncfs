@@ -1,35 +1,93 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>NCCloud Administration Console</title>
+		<title>Administration Console</title>
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-		<link rel="stylesheet" href="css/main.css" >
+		<style>
+			form {
+				text-align: center;
+			}	
+			table, th, td {
+				align: center;
+			    border: 1px solid black;
+			    text-align: center;
+			}
+		</style>
 	</head>
 	<body>
-		<h1>NCCloud Administration Console</h1>
-		<br/>
-		<iframe src="left.html" width="300" height="500"></iframe>
-		<iframe src="right.html" width="300" height="500"></iframe>
-		
-		
-		
-		
-		
-		
-		<form action='.' method="POST" enctype="multipart/form-data">
-			{% csrf_token %}
-			{{ form.non_field_errors }}
-			<div class="fieldWrapper">
-			    {{ form.username.errors }}
-			    <label for="{{ form.username.id_for_label }}">User:</label>
-			    {{ form.username }}
-			</div>
-			<div class="fieldWrapper">
-			    {{ form.password.errors }}
-			    <label for="{{ form.password.id_for_label }}">Password:</label>
-			    {{ form.password }}
-			</div>
-			<p><input type="submit" value="Login" /></p>
-		</form>
+		<table style = "text-align: center; border:0;">
+			<tr height="30px">
+				<td width="100px" style = "text-align: center; border:0;">					
+				</td>
+				<td width="500px" style = "text-align: center; border:0;">
+				</td>
+			</tr>
+			<tr>
+				<td width="100px" style = "text-align: center; border:0;">					
+				</td>
+				<td style = "text-align: center; border:0;">
+					<h1>CloSSer: Cloud Storage Services</h1>
+				</td>
+			</tr>
+			<tr>
+				<td width="100px" style = "text-align: center; border:0;">
+				</td>
+				<td style = "text-align: center; border:0;">
+					<form id='ConsoleForm'>
+						{% csrf_token %}
+						<div>
+							<label>
+								CloSSer service state 
+								<input name="on" value="unchecked" type="checkbox">
+							</label>
+							<button type=submit>On/Off</button> 
+						</div>
+						<div>
+							<label>
+								Mounting directory
+								<input id="mountDir" name="mountDir" size="40" type="text" value='/home/ialzuru/NCCloud-1.1/st' required>
+							</label>
+						</div>
+					</form> 
+					
+					There are {{ n }} Cloud nodes configured:
+			        <form action='/cloud/' method='POST' enctype='multipart/form-data'>
+			        {% csrf_token %}
+			            <table>
+			                <tr>
+			                    <td width="30px">Id</td>
+			                    <td width="100px">Type</td>
+			                    <td width="200px">Bucket Name</td>
+			                    <td width="30px">Configure</td>
+							</tr>
+							{% for key, list in dict_clouds.items %}
+							<tr>
+								<td>{{ key }}</td>
+								{% for v in list %}
+									<td>{{ v }}</td>
+								{% endfor %}
+								<td><input type='submit' name='node{{ key }}' value='cfg'></td>
+							</tr>
+							{% endfor %}
+						</table>
+					</form> 
+					<br/>
+					
+					<div>
+						<label>
+							Deduplication 
+				        	<input name='dedup' type='checkbox' {{ dedup }}>
+				    	</label>
+				    	<button type=submit>On/Off</button>
+					</div>
+					<div>
+						<label>
+							Pointer directory
+							<input id='pointerDir' name='pointerDir' type='text' size='40' value = "{{ pointerDir }}" required>
+						</label>
+					</div>
+				</td>
+			</tr>
+		</table>
 	</body>
-</html>
+</html> 

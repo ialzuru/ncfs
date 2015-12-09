@@ -21,6 +21,7 @@ import workflow
 import storage
 import rebuild
 import clean
+import subprocess
 #import zk #cq
 
 
@@ -308,6 +309,12 @@ def main():
 Userspace CloudNCFS: mount local directory to multiple Cloud storages with fault tolerance by network coding.
 """ + Fuse.fusage
 
+    # Webservice start
+#     wwwPath = os.path.abspath(os.path.join( os.path.dirname( __file__ ), '..', 'www' ))
+#     wwwSvc = subprocess.Popen(['python', wwwPath + '/manage.py', 'runserver'], shell=False)
+
+
+    # Cloud service configuration and start
     server = CloudNCFS(version="%prog " + fuse.__version__,
                  usage=usage,
                  dash_s_do='setsingle')
@@ -316,6 +323,10 @@ Userspace CloudNCFS: mount local directory to multiple Cloud storages with fault
     #disable fuse multithreaded option to avoid racing problem:
     server.multithreaded = False
     server.main()
+
+
+    # Webservice stop
+#     wwwSvc.terminate()
 
 if __name__ == '__main__':
     main()

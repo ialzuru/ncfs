@@ -19,7 +19,8 @@ from django.contrib import admin
 from console import views
 
 urlpatterns = [
-    url(r'^login/$', 'login.views.verifyAdmin', name='verify'),
-    url(r'^console/$', views.adminConsole, name='AdminConsole'),       
+    url(r'^$', 'login.views.verifyAdmin', name='verify'),
+    url(r'^cloud/$', views.cloudModif, name='cloudModif'),    
+    url(r'^console/$', views.adminConsole, name='AdminConsole'),   
     url(r'^admin/', include(admin.site.urls)),
 ]
