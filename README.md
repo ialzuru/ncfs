@@ -1,3 +1,12 @@
+This is a project course where I participated.
+Class: Cloud Computing 
+Semester: Fall 2015
+Professor: Dr. Xiaolin Andy Li.
+
+Description: Distributed filesystem to backup files in multiple clouds. Supports failure recovery and deduplication. We modified NCCloud to include support to Onedrive, Google Drive, and Dropbox. We also began the development of a Web Interface using Django. 
+For more information please check the Presentation or the Report.
+
+
 # ncfs
 a universal storage interface, which also integrates google drive, dropbox, onedrive
 
